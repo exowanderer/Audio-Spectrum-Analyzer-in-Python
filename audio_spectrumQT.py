@@ -1,6 +1,7 @@
 import numpy as np
-from pyqtgraph.Qt import QtGui, QtCore
+from pyqtgraph.Qt import QtGui, QtCore, QtWidgets
 import pyqtgraph as pg
+import pyqtgraph.opengl as gl
 
 import struct
 import pyaudio
@@ -9,15 +10,20 @@ from scipy.fftpack import fft
 import sys
 import time
 
-
 class AudioStream(object):
     def __init__(self):
 
         # pyqtgraph stuff
         pg.setConfigOptions(antialias=True)
         self.traces = dict()
-        self.app = QtGui.QApplication(sys.argv)
-        self.win = pg.GraphicsWindow(title='Spectrum Analyzer')
+        # self.app = QtGui.QApplication(sys.argv)
+        self.app = QtWidgets.QApplication(sys.argv)
+        # self.win = gl.GLViewWidget()
+        self.win = pg.GraphicsLayoutWidget(
+            show=True,
+            title='Spectrum Analyzer'
+        )
+
         self.win.setWindowTitle('Spectrum Analyzer')
         self.win.setGeometry(5, 115, 1910, 1070)
 
@@ -60,11 +66,12 @@ class AudioStream(object):
         )
         # waveform and spectrum x points
         self.x = np.arange(0, 2 * self.CHUNK, 2)
-        self.f = np.linspace(0, self.RATE / 2, self.CHUNK / 2)
+        self.f = np.linspace(0, self.RATE // 2, self.CHUNK // 2)
 
     def start(self):
         if (sys.flags.interactive != 1) or not hasattr(QtCore, 'PYQT_VERSION'):
-            QtGui.QApplication.instance().exec_()
+            # QtGui.QApplication.instance().exec_()
+            QtWidgets.QApplication.instance().exec_()
 
     def set_plotdata(self, name, data_x, data_y):
         if name in self.traces:
@@ -84,10 +91,10 @@ class AudioStream(object):
     def update(self):
         wf_data = self.stream.read(self.CHUNK)
         wf_data = struct.unpack(str(2 * self.CHUNK) + 'B', wf_data)
-        wf_data = np.array(wf_data, dtype='b')[::2] + 128
+        wf_data = np.array(wf_data).astype('b')[::2] + 128
         self.set_plotdata(name='waveform', data_x=self.x, data_y=wf_data,)
 
-        sp_data = fft(np.array(wf_data, dtype='int8') - 128)
+        sp_data = fft(np.array(wf_data).astype('int8') - 128)
         sp_data = np.abs(sp_data[0:int(self.CHUNK / 2)]
                          ) * 2 / (128 * self.CHUNK)
         self.set_plotdata(name='spectrum', data_x=self.f, data_y=sp_data)
