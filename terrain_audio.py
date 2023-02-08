@@ -12,7 +12,7 @@ If you don't have pyOpenGL or opensimplex, then:
 import numpy as np
 from opensimplex import OpenSimplex
 import pyqtgraph.opengl as gl
-from pyqtgraph.Qt import QtCore, QtGui
+from pyqtgraph.Qt import QtCore, QtGui, QtWidgets
 import struct
 import pyaudio
 import sys
@@ -25,7 +25,8 @@ class Terrain(object):
         """
 
         # setup the view window
-        self.app = QtGui.QApplication(sys.argv)
+        # self.app = QtGui.QApplication(sys.argv)
+        self.app = QtWidgets.QApplication(sys.argv)
         self.window = gl.GLViewWidget()
         self.window.setWindowTitle('Terrain')
         self.window.setGeometry(0, 110, 1920, 1080)
@@ -35,8 +36,10 @@ class Terrain(object):
         # constants and arrays
         self.nsteps = 1.3
         self.offset = 0
-        self.ypoints = np.arange(-20, 20 + self.nsteps, self.nsteps)
-        self.xpoints = np.arange(-20, 20 + self.nsteps, self.nsteps)
+        
+        self.ypoints = np.linspace(-20, 20.3, 64)
+        self.xpoints = np.linspace(-20, 20.3, 64)
+
         self.nfaces = len(self.ypoints)
 
         self.RATE = 44100
@@ -53,7 +56,8 @@ class Terrain(object):
         )
 
         # perlin noise object
-        self.noise = OpenSimplex()
+        seed = 42
+        self.noise = OpenSimplex(seed)
 
         # create the veritices array
         verts, faces, colors = self.mesh()
@@ -72,19 +76,22 @@ class Terrain(object):
 
         if wf_data is not None:
             wf_data = struct.unpack(str(2 * self.CHUNK) + 'B', wf_data)
-            wf_data = np.array(wf_data, dtype='b')[::2] + 128
-            wf_data = np.array(wf_data, dtype='int32') - 128
+            wf_data = np.array(wf_data).astype('b')[::2] + 128
+            wf_data = np.array(wf_data).astype('int32') - 128
             wf_data = wf_data * 0.04
             wf_data = wf_data.reshape((len(self.xpoints), len(self.ypoints)))
         else:
-            wf_data = np.array([1] * 1024)
-            wf_data = wf_data.reshape((len(self.xpoints), len(self.ypoints)))
+            # wf_data = np.array([1] * )
+            wf_data = np.ones((len(self.xpoints), len(self.ypoints)))
 
         faces = []
         colors = []
         verts = np.array([
             [
-                x, y, wf_data[xid][yid] * self.noise.noise2d(x=xid / 5 + offset, y=yid / 5 + offset)
+                x, y, wf_data[xid][yid] * self.noise.noise2(
+                    x=xid / 5 + offset,
+                    y=yid / 5 + offset
+                )
             ] for xid, x in enumerate(self.xpoints) for yid, y in enumerate(self.ypoints)
         ], dtype=np.float32)
 
@@ -129,7 +136,9 @@ class Terrain(object):
         get the graphics window open and setup
         """
         if (sys.flags.interactive != 1) or not hasattr(QtCore, 'PYQT_VERSION'):
-            QtGui.QApplication.instance().exec_()
+            # QtGui.QApplication.instance().exec_()
+            # QtGui.QGuiApplication.instance().exec_()
+            QtWidgets.QApplication.instance().exec_()
 
     def animation(self, frametime=10):
         """
